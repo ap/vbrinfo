@@ -46,7 +46,7 @@ typedef struct {
 	int frames;
 	int min_br;
 	int max_br;
-	int frames_for_br[ MAX_BITRATE ];
+	int frames_for_br[ MAX_BITRATE + 1 ];
 	double total_bits;
 } decode_info;
 
@@ -54,10 +54,12 @@ void
 usage( void )
 {
 	fprintf( stderr,
-		"usage: vbrinfo [-sgvh] files\n"
-		"       -s  print summary [default if nothing else specified]\n"
-		"       -g  print histogram\n"
+		"usage: vbrinfo [-v] [-g] [-s] [-p prec] [-h] files\n"
 		"       -v  be verbose: print the bitrate of each frame\n"
+		"       -g  print histogram\n"
+		"       -s  print summary [default if nothing else specified]\n"
+		"       -p  precision for average bitrate in summary,\n"
+		"           takes number of fractional digits, implies -s\n"
 		"       -h  this help\n"
 	);
 	exit( 1 );
@@ -82,6 +84,7 @@ process_arg( int argc, char **argv )
 				opt_verbose = 1;
 				break;
 			case 'p':
+				opt_summary = 1;
 				opt_precision = strtol( optarg, &end, 10 );
 				if( errno || opt_precision < 0 )
 					warnx( "precision must be a non-negative integer" ), usage();
@@ -126,7 +129,7 @@ header_callback( void * data, struct mad_header const * header )
 	if ( info->min_br > br || ! info->min_br ) info->min_br = br;
 	if ( info->max_br < br || ! info->max_br ) info->max_br = br;
 
-	if( br > 0 && br < MAX_BITRATE )
+	if( br > 0 && br <= MAX_BITRATE )
 		++info->frames_for_br[ br ];
 	else
 		++info->frames_for_br[ 0 ];
@@ -196,9 +199,11 @@ main( int argc, char **argv )
 		if ( opt_histogram ) {
 			printf( "  Histogram:\n" );
 			int i;
-			for( i = 0 ; i < MAX_BITRATE ; ++i )
+			for( i = 1 ; i <= MAX_BITRATE ; ++i )
 				if( info.frames_for_br[ i ] )
 					printf( "    %i\t%6i\n", i, info.frames_for_br[ i ] );
+			if( info.frames_for_br[ 0 ] )
+				printf( "    ???\t%i\n", info.frames_for_br[ 0 ] );
 		}
 
 		if ( optind < ( argc - 1 ) ) printf( "\n" );
